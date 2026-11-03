@@ -1,0 +1,23 @@
+[package]
+name = "embed-ai-chat"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "AGPL-3.0-only"
+description = "Embeddable AI chat, MCP, Skill and host-control console framework"
+
+[lib]
+name = "embed_ai_chat"
+path = "src/lib.rs"
+
+[[bin]]
+name = "EmbedAiChatRust"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rpassword = "=7.3.1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

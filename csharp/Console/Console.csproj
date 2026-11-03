@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><UseAppHost>false</UseAppHost><TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>EmbedAiChatCSharp</AssemblyName></PropertyGroup><ItemGroup><ProjectReference Include="../EmbedAiChat/EmbedAiChat.csproj" /></ItemGroup></Project>

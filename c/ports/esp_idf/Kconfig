@@ -1,0 +1,57 @@
+menu "EmbedAiChat MCU"
+config EMBED_AI_TOOLS
+    bool "Host tools and schema validation"
+    default y
+config EMBED_AI_HISTORY
+    bool "Retain previous messages"
+    default y
+config EMBED_AI_AUDIT
+    bool "Retain recent tool results"
+    default y
+config EMBED_AI_COMPACTION
+    bool "Rolling summary"
+    depends on EMBED_AI_HISTORY
+    default n
+config EMBED_AI_ARCHIVE
+    bool "JSON history archive"
+    depends on EMBED_AI_HISTORY
+    default n
+config EMBED_AI_SKILLS
+    bool "Skill instructions"
+    default n
+config EMBED_AI_ANTHROPIC
+    bool "Anthropic protocol"
+    default n
+config EMBED_AI_JSON_BYTES
+    int "Maximum JSON bytes"
+    range 512 65536
+    default 8192
+config EMBED_AI_RESPONSE_BYTES
+    int "Default HTTP response capacity"
+    range 128 65536
+    default 4096
+config EMBED_AI_CONTEXT_TOKENS
+    int "Estimated input token budget"
+    range 128 16000
+    default 2000
+config EMBED_AI_OUTPUT_TOKENS
+    int "Output token limit"
+    range 1 8192
+    default 256
+config EMBED_AI_SUMMARY_TOKENS
+    int "Summary output token limit"
+    range 1 4096
+    default 128
+config EMBED_AI_TOOL_RESULT_BYTES
+    int "Maximum tool result bytes"
+    range 64 32768
+    default 1024
+config EMBED_AI_AUDIT_ENTRIES
+    int "Maximum audit entries (0 = unlimited)"
+    range 0 1024
+    default 4
+config EMBED_AI_HISTORY_MESSAGES
+    int "Maximum raw history messages (0 = unlimited)"
+    range 0 1024
+    default 16
+endmenu

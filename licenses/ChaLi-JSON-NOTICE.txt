@@ -1,0 +1,5 @@
+ChaLi JSON
+Copyright 2026 小兔糖糖_OvO
+
+Licensed under the Apache License, Version 2.0.
+JSON implementation: source/json/json.hpp and source/json/json.cpp.

@@ -1,0 +1,17 @@
+{
+  "provider": "openai",
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-chat",
+  "context_budget": 16000,
+  "max_tokens": 2048,
+  "max_summary_tokens": 1024,
+  "auto_compact": true,
+  "compression_threshold": 90,
+  "allow_tools": false,
+  "skills": [
+    "skills/demo-host"
+  ],
+  "active_skill": "demo-host",
+  "mcp": [],
+  "max_rounds": 0
+}
