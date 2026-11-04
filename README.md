@@ -126,7 +126,7 @@ JSON 归档版本为 1，六种完整实现语言可以互读，C 也使用相�
 
 主要参考 [LangGraph/LangMem 滚动摘要](https://langchain-ai.github.io/langmem/guides/summarization/)：独立保存完整历史、摘要和覆盖边界；达到阈值时仅对尚未覆盖的历史与旧摘要进行合并更新；通过 `max_summary_tokens` 独立限制摘要输出。预算按系统指引、近期原文与历史摘要分层，参考 [LLMLingua 的预算控制思路](https://github.com/microsoft/LLMLingua/blob/main/DOCUMENT.md)。当前沿用七语言的轻量核心，不直接依赖 LangGraph/LangMem 或 LLMLingua，也未实现 LLMLingua 的逐 token 评分，不保证摘要无损。
 
-默认不限制单次对话的工具调用轮数和每轮调用数量，模型返回最终回答时结束。`max_rounds` 默认 `0` 表示不限制，宿主可显式设置正整数上限；参数回调结果上限仍为 1 MiB。
+默认不限制单次对话的工具调用轮数和每轮调用数量，模型调用 `assistant_end` 或返回不带工具调用的最终回答时结束。`max_rounds` 默认 `0` 表示不限制，宿主可显式设置正整数上限；参数回调结果上限仍为 1 MiB。
 
 JSON Schema 支持 object/array/string/number/integer/boolean/null、anyOf、enum、properties、required、additionalProperties、items、minimum/maximum，以及 min/maxLength、min/maxItems、min/maxProperties。`$ref`、pattern、oneOf 等不支持，出现时明确拒绝调用；不宣称执行了完整 JSON Schema 校验。
 
@@ -170,3 +170,14 @@ Python 直接运行源码，无须原生编译；`./build.ps1 -Languages python`
 ## 代码排版约定
 
 所有版本的 `if`、`else`、`for`、`while`、`do` 语句体统一使用大括号，单行语句也不例外。`else if` 保持连续分支写法，每个 `if` 的语句体仍使用大括号。C++ 格式由 `.clang-format` 配置，C# 使用 `.editorconfig`，Go/Rust 使用各自标准格式工具；排版时保留接口文档注释和实现中的说明。第三方依赖源码保持各自格式。
+
+
+## 多消息与主动结束
+
+七种语言均支持一次用户输入调用多个 MCP 服务。AI 可以交替调用
+`assistant_reply({"text":"进度或结果"})` 与其他工具，完成后调用 `assistant_end({})`。
+消息发送本身也是工具调用，会保存审计。控制台立即展示每条消息，原发送接口仍返回最后一条消息。
+嵌入式宿主可通过消息事件回调同步更新界面，接口表与事件约定见 [API.md](API.md#单次处理中的消息工具与事件回调)。
+
+新功能回归：`python -X utf8 tests/verify_conversation.py`，可传 `--languages python java` 选择语言。
+全部使用本地模型与两个 stdio MCP fixture，不调用付费 API。

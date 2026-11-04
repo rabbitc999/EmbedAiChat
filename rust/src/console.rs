@@ -157,7 +157,12 @@ pub fn run(args: &[String]) -> Result<()> {
         }
     }
     if !ask.is_empty() {
-        println!("{}", engine.send(&ask)?);
+        engine.send_with_events(&ask, &mut |event| {
+            if event["type"] == "assistant" {
+                println!("{}", event["text"].as_str().unwrap_or(""));
+            }
+            Ok(())
+        })?;
         println!(
             "{}",
             json!({"host":state.borrow().clone(),"history":engine.export_history()})
@@ -243,7 +248,12 @@ pub fn run(args: &[String]) -> Result<()> {
             }
             ensure(!line.starts_with('/'), "Unknown command; /help")?;
             if !line.is_empty() {
-                println!("{}", engine.send(line)?);
+                engine.send_with_events(line, &mut |event| {
+                    if event["type"] == "assistant" {
+                        println!("{}", event["text"].as_str().unwrap_or(""));
+                    }
+                    Ok(())
+                })?;
             }
             Ok(())
         })();

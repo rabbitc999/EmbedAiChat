@@ -120,3 +120,14 @@ AI_CHAT_MCP_Close(mcp);
 连接成功后工具加入同一白名单；默认工具开关仍由宿主配置。MCP 返回的 content、structuredContent 和 isError 保留，工具结果通过匹配的 tool_call_id 返回模型。模型可继续调用工具，也可给出最终回答结束本轮。工具失败以 ok=false 回传，不伪造执行成功。
 
 单次 RPC 期限为 1–60000 ms，请求最多 32 KiB、响应行最多 4 MiB；超时关闭本会话创建的进程，不自动重发。重复名称、循环分页游标、非法 schema 或发现失败会撤回本次注册，保留已有工具。会话必须覆盖引擎生命周期，释放引擎之后才调用 Close；不得在引擎仍可能执行回调时提前释放会话。此模块仅本次实测 Windows；POSIX 路径尚未在 Linux/macOS 实测。
+
+
+## 消息工具与实时事件
+
+开启工具功能时（包括 MCU tools profile），内置 `assistant_reply` 和 `assistant_end`，
+不依赖 Skill 或文件系统。消息工具参数为 `{"text":"内容"}`，结束工具为空对象。
+`AI_CHAT_SendWithEvents(handle, text, &answer, callback, user_data)` 按序通知
+`assistant`、`tool`、`done`；回调借用只读 cJSON，不得释放/保留或重入引擎，返回非 OK 状态中止处理。
+最终 `answer` 仍由 `AI_CHAT_Free` 释放。原 `AI_CHAT_Send` 保持兼容并返回最后一条消息。
+所有回复均计入历史容量限制，开启工具会增加两个工具定义的 RAM 占用。
+工具被裁剪时仍能接收普通助手消息事件。完整协议见根目录 API.md。

@@ -131,3 +131,19 @@ python -X utf8 tests/verify.py --python-only
 `./verify.ps1` 将 Python 加入原五语言的统一验收，另执行 Python 边界测试和独立 C 验收。Python 单独验收使用本地模型和 MCP fixture，不需要密钥，不调用收费模型。
 
 公开类、方法、模块具有中文 docstring，配置字段含说明；实现注释说明 MCP 超时/进程清理、注册原子性、Skill 权限、协议转换、工具审计、历史压缩/导入与文件原子保存。可用 `python -m pydoc embedai` 查看安装后的接口说明。
+
+
+## 一次输入发送多条消息
+
+```python
+def on_event(event):
+    if event["type"] == "assistant":
+        print(event["text"], flush=True)
+
+last_reply = chat.send("查询并处理", on_event=on_event)
+```
+
+模型通过 `assistant_reply` 发送消息，之后可以继续调用多个 MCP 服务；
+通过 `assistant_end` 结束当前处理并等待下一条用户输入。
+`last_reply` 是最后一条消息，不应在事件回调已经显示后再重复显示。
+回调收到独立的 `assistant` / `tool` / `done` 事件；失败抛异常并保留已发送消息及审计。

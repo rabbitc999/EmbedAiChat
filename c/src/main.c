@@ -54,6 +54,12 @@ static void print_json(cJSON *j) {
     if (s) { puts(s); free(s); }
     cJSON_Delete(j);
 }
+/* 消息事件立即显示，最终返回字符串只负责兼容原有宿主接口。 */
+static AI_CHAT_StatusTypeDef display_event(const cJSON *event, void *user) {
+    (void)user;
+    if (!strcmp(field(event,"type",""),"assistant")) { puts(field(event,"text","")); fflush(stdout); }
+    return AI_CHAT_OK;
+}
 static void print_host(const DemoHost *host) {
     cJSON *o=cJSON_CreateObject(); cJSON_AddStringToObject(o,"title",host->title); cJSON_AddNumberToObject(o,"value",host->value); print_json(o);
 }
@@ -164,8 +170,8 @@ int main(int argc, char **argv) {
     }
     if (ask) {
         char *answer=NULL; cJSON *out;
-        if (AI_CHAT_Send(h,ask,&answer)!=AI_CHAT_OK) { fprintf(stderr,"%s\n",AI_CHAT_GetError(h)); goto done; }
-        puts(answer); AI_CHAT_Free(answer);
+        if (AI_CHAT_SendWithEvents(h,ask,&answer,display_event,NULL)!=AI_CHAT_OK) { fprintf(stderr,"%s\n",AI_CHAT_GetError(h)); goto done; }
+        AI_CHAT_Free(answer);
         out=cJSON_CreateObject(); item=cJSON_AddObjectToObject(out,"host"); cJSON_AddStringToObject(item,"title",host.title); cJSON_AddNumberToObject(item,"value",host.value);
         cJSON_AddItemToObject(out,"history",AI_CHAT_ExportHistory(h)); print_json(out); exit_code=0; goto done;
     }
@@ -208,8 +214,8 @@ int main(int argc, char **argv) {
             status=AI_CHAT_ImportHistory(h,a); cJSON_Delete(a); free(s);
         } else if (line[0]=='/') { fprintf(stderr,"Unsupported command\n"); }
         else if (*line) {
-            char *answer=NULL; status=AI_CHAT_Send(h,line,&answer);
-            if (status==AI_CHAT_OK) { puts(answer); AI_CHAT_Free(answer); }
+            char *answer=NULL; status=AI_CHAT_SendWithEvents(h,line,&answer,display_event,NULL);
+            if (status==AI_CHAT_OK) { AI_CHAT_Free(answer); }
         }
         if (status!=AI_CHAT_OK) { fprintf(stderr,"%s\n",AI_CHAT_GetError(h)); }
     }

@@ -137,11 +137,15 @@ func RunConsole(args []string) error {
 		}
 	}
 	if ask != "" {
-		answer, err := e.Send(ctx, ask)
+		_, err := e.SendWithEvents(ctx, ask, func(event Object) error {
+			if event["type"] == "assistant" {
+				fmt.Println(text(event["text"]))
+			}
+			return nil
+		})
 		if err != nil {
 			return err
 		}
-		fmt.Println(answer)
 		fmt.Println(jsonText(Object{"host": state, "history": e.ExportHistory()}))
 		return nil
 	}
@@ -270,11 +274,15 @@ func RunConsole(args []string) error {
 				return fmt.Errorf("Unknown command; /help")
 			}
 			if line != "" {
-				answer, err := e.Send(ctx, line)
+				_, err := e.SendWithEvents(ctx, line, func(event Object) error {
+					if event["type"] == "assistant" {
+						fmt.Println(text(event["text"]))
+					}
+					return nil
+				})
 				if err != nil {
 					return err
 				}
-				fmt.Println(answer)
 			}
 			return nil
 		}()

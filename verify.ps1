@@ -24,3 +24,6 @@ if ($LASTEXITCODE -ne 0) { throw 'MCP feedback acceptance failed' }
 
 & python -X utf8 (Join-Path $PSScriptRoot 'tests/verify_c_mcu.py')
 if ($LASTEXITCODE -ne 0) { throw 'C MCU profile acceptance failed' }
+
+& python -X utf8 (Join-Path $PSScriptRoot 'tests/verify_conversation.py')
+if ($LASTEXITCODE -ne 0) { throw 'Conversation events and JSON string acceptance failed' }

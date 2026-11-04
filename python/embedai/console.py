@@ -105,7 +105,7 @@ def run_console(argv=None):
         if args.config:
             configure(engine, args.config)
         if args.ask is not None:
-            print(engine.send(args.ask))
+            engine.send(args.ask, lambda e: print(e["text"], flush=True) if e["type"] == "assistant" else None)
             print(dumps({"host": state, "history": engine.export_history()}))
             return
         print("EmbedAiChat Python 控制台；/help 查看命令，/key 输入会话密钥。")
@@ -157,7 +157,7 @@ def run_console(argv=None):
                 elif line.startswith("/"):
                     raise ValueError("Unknown command")
                 elif line:
-                    print(engine.send(line))
+                    engine.send(line, lambda e: print(e["text"], flush=True) if e["type"] == "assistant" else None)
             except Exception as exc:
                 print(f"Error: {exc}", file=sys.stderr)
 

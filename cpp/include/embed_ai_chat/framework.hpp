@@ -155,7 +155,7 @@ class Engine {
     bool allow_tools = false;
 
     /**
-     * 创建聊天引擎并注册 skill_list、skill_activate 两个内置工具。
+     * 创建聊天引擎，注册 assistant_reply、assistant_end 及两个 Skill 内置工具。
      *
      * @param http 可选宿主网络回调；为空时使用 post_json 的 libcurl 实现。
      * @note 回调捕获当前对象，因此引擎禁止复制。
@@ -216,6 +216,10 @@ class Engine {
      * @note 不自动重试；已经执行的工具审计在后续请求失败时仍会保留。
      */
     std::string send(const std::string &text);
+
+    /** 按序回调 assistant/tool/done 事件，事件仅在回调期间借用，不得重入引擎。
+     * 回调异常停止处理；已完成消息和工具审计仍保留。 */
+    std::string send(const std::string &text, const std::function<void(const Json &)> &on_event);
 
     /**
      * 导出可供文件或宿主项目容器保存的历史数据。

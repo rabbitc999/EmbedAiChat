@@ -54,6 +54,24 @@ int main() {
         expect(roundtrip == value, "Nested roundtrip");
         expect(json_get<std::string>(json_parse(R"("a\u0000b")")).size() == 3, "Embedded zero is preserved");
         expect(json_get<double>(json_parse("1.2e-3")) == 0.0012, "Scientific notation");
+        // 数字样式文本始终保持 string，不能被读取/校验为 number。
+        for (const auto &text : {"1.0", "001", "1e3", "-0.0"}) {
+            const Json native(text);
+            const auto parsed = json_parse(native.dump());
+            expect(parsed.isString() && !parsed.isNumber(), "Numeric-looking string type");
+            expect(json_get<std::string>(parsed) == text, "Numeric-looking string contents");
+            expect(!parsed.asDouble() && !parsed.asInt(), "No string-to-number coercion");
+            expect_failure([&] { json_get<double>(parsed); }, "Number getter rejects string");
+            validate(Json::object({{"type", "string"}}), parsed);
+            expect_failure([&] { validate(Json::object({{"type", "number"}}), parsed); },
+                           "Number schema rejects string");
+            expect(parsed != json_parse("1.0"), "String differs from JSON number");
+        }
+        const auto typed = json_parse(R"({"version":"1.0","value":1.0,"items":["1.0",1.0]})");
+        expect(json_at(typed, "version").isString(), "Version text remains string");
+        expect(json_at(typed, "value").isNumber(), "Unquoted number remains numeric");
+        expect(json_parse(typed.dump()) == typed, "Mixed strings/numbers survive roundtrip");
+
         expect_failure([] { json_parse("1e999"); }, "Overflowing exponent rejected");
         expect_failure([] { json_parse("-1e999"); }, "Negative overflowing exponent rejected");
 

@@ -57,6 +57,39 @@ class JsonAndHostTests(unittest.TestCase):
             self.assertEqual(engine.send("first"), "done")
             self.assertEqual(len(engine.export_history()["messages"]), 2)
 
+    def test_message_events_are_ordered_and_independent(self):
+        calls = [{"id": str(i), "type": "function", "function": {"name": name, "arguments": dumps(args)}}
+                 for i, (name, args) in enumerate([("assistant_reply", {"text": "1.0"}), ("assistant_end", {})])]
+        requests = []
+        def transport(*args):
+            requests.append(args)
+            self.assertEqual(len(requests), 1)
+            return {"choices": [{"message": {"content": "", "tool_calls": calls}}]}
+        with Engine(transport) as engine:
+            engine.config.model = "fixture"
+            engine.allow_tools = True
+            events = []
+            def observe(event):
+                events.append(event["type"])
+                if event["type"] == "tool":
+                    event["audit"]["result"]["ok"] = False
+            self.assertEqual(engine.send("run", observe), "1.0")
+            self.assertEqual(events, ["tool", "assistant", "tool", "done"])
+            self.assertTrue(all(a["result"]["ok"] for a in engine.export_history()["audit"]))
+            self.assertIsInstance(engine.export_history()["messages"][1]["content"], str)
+
+    def test_message_callback_failure_preserves_history(self):
+        def transport(*_):
+            return {"choices": [{"message": {"content": "已发送"}}]}
+        with Engine(transport) as engine:
+            engine.config.model = "fixture"
+            def stop(event):
+                raise RuntimeError("UI disconnected")
+            with self.assertRaisesRegex(RuntimeError, "UI disconnected"):
+                engine.send("first", stop)
+            self.assertEqual(engine.export_history()["messages"][-1]["content"], "已发送")
+            self.assertEqual(engine.send("second"), "已发送")
+
     def test_credentials_not_in_repr_or_configuration(self):
         with Engine() as engine, tempfile.TemporaryDirectory() as directory:
             engine.config.api_key = "test-secret"

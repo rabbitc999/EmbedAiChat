@@ -103,7 +103,7 @@ public static class ConsoleRunner
 
             if (ask.Length > 0)
             {
-                Console.WriteLine(await e.SendAsync(ask).ConfigureAwait(false));
+                await e.SendWithEventsAsync(ask, evt => { if (evt["type"]!.GetValue<string>() == "assistant") Console.WriteLine(evt["text"]!.GetValue<string>()); return Task.CompletedTask; }).ConfigureAwait(false);
                 Console.WriteLine(J.Dump(J.O("host", state, "history", e.ExportHistory())));
                 return 0;
             }
@@ -199,7 +199,7 @@ public static class ConsoleRunner
                     J.Require(!line.StartsWith('/'), "Unknown command; /help");
                     if (line.Length > 0)
                     {
-                        Console.WriteLine(await e.SendAsync(line).ConfigureAwait(false));
+                        await e.SendWithEventsAsync(line, evt => { if (evt["type"]!.GetValue<string>() == "assistant") Console.WriteLine(evt["text"]!.GetValue<string>()); return Task.CompletedTask; }).ConfigureAwait(false);
                     }
                 }
                 catch (Exception error)

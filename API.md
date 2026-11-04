@@ -294,7 +294,7 @@ C# 网络及 MCP 是异步接口。`SendAsync` 支持 CancellationToken；用户
 | McpClient::tools() | McpClient.tools() | 分页读取工具，最多 100 页 |
 | McpClient::call(name,args) | McpClient.call(name,args) | 返回原始 content / structuredContent / isError |
 
-默认工具包含 `skill_list` 和 `skill_activate`，也受 `allow_tools/allowTools` 限制。宿主控制范围完全由宿主注册的回调决定，框架不提供任意命令执行工具。
+默认工具包含 `assistant_reply`、`assistant_end`、`skill_list` 和 `skill_activate`，也受 `allow_tools/allowTools` 限制。宿主控制范围完全由宿主注册的回调决定，框架不提供任意命令执行工具。
 
 ## 历史格式
 
@@ -326,3 +326,62 @@ C# 网络及 MCP 是异步接口。`SendAsync` 支持 CancellationToken；用户
 `AI_CHAT_InitTypeDef` 新增 `RequestBuffer/RequestCapacity`、`ResponseBuffer`，复用既有 `ResponseCapacity` 指定宿主缓冲区容量；NULL 时使用分配器。缓冲区必须互不重叠并覆盖引擎生命周期。`AI_CHAT_SetAllocator(allocate, release)` 安装核心和 cJSON 共用分配器；全局设置，只能在无存活引擎/JSON 对象时更换。Send 返回值仍通过 `AI_CHAT_Free` 释放。
 
 配置宏与 MCU 预算见 `c/include/embed_ai_chat/config.h`，详细构建与移植见 [MCU 指南](c/MCU.md)。被裁掉的 API 明确失败；关闭归档且开启摘要时会释放已覆盖原文，以维持有限内存中的滚动会话。桌面完整配置保持原始历史归档行为。
+
+
+## 单次处理中的消息工具与事件回调
+
+七种实现均内置以下两个工具，与外部 MCP 工具使用相同的模型工具调用接口、参数校验、工具总开关和审计流程。
+它们是框架内置工具，不需要另启动 MCP 服务。
+
+| 工具 | 参数 | 行为 |
+| --- | --- | --- |
+| `assistant_reply` | `{"text":"消息内容"}` | 发送一条非空消息，可以继续调用其他工具 |
+| `assistant_end` | `{}` | 结束当前用户输入的处理，不清空会话历史 |
+
+一次处理允许多个 MCP 服务、多轮工具调用及多次消息发送。模型调用结束工具后，
+同批中后续工具不执行，并记为失败审计；不再发起下一轮模型请求。
+没有工具调用的普通助手回复也结束处理，兼容关闭工具及旧模型的行为。
+原有发送方法仍返回最后一条已发送消息；历史保存全部中途及最终回复。
+
+宿主通过以下接口实时消费完整消息事件（不是逐 token 流）：
+
+| 语言 | 接口 |
+| --- | --- |
+| C | `AI_CHAT_SendWithEvents(handle, text, &answer, callback, user_data)` |
+| C++ | `engine.send(text, on_event)` |
+| Java | `engine.send(text, events)` |
+| Go | `engine.SendWithEvents(ctx, text, onEvent)` |
+| Rust | `engine.send_with_events(text, &mut on_event)` |
+| C# | `engine.SendWithEventsAsync(text, onEvent, token)` |
+| Python | `engine.send(text, on_event=None)` |
+
+事件按实际执行顺序通知：
+
+```json
+{"type":"assistant","text":"开始查询"}
+{"type":"tool","audit":{"name":"a_query","arguments":"{}","result":{"ok":true,"result":{}}}}
+{"type":"assistant","text":"查询完成"}
+{"type":"done"}
+```
+
+消息工具自身也生成工具审计及 `tool` 事件，随后生成 `assistant` 消息事件。
+`done` 只在正常结束时产生。异常通过原有发送方法的异常/错误返回报告，不发送 `done`，
+已完成的消息与工具审计保留，禁止据错误自动重发写操作。
+控制台已使用事件回调即时显示消息，避免只显示最后一条或重复显示最终消息。
+
+事件回调在发送流程中串行执行，不得重入引擎。C/C++/Rust 的事件是只在回调期间有效的只读借用；
+需保留时自行深复制。Java/Go/C#/Python 提供独立副本。
+C 回调返回 `AI_CHAT_OK`、Go 回调返回 `nil`、Rust 回调返回 `Ok(())` 表示继续；
+错误状态或其他语言的回调异常中止处理，不自动重试。
+C 的返回字符串仍需 `AI_CHAT_Free`；禁用工具的 MCU profile 不注册对话工具，但可接收普通回复事件。
+
+### 数字样式字符串的类型边界
+
+JSON `"1.0"` 是字符串，JSON `1.0` 是数字。`"001"`、`"1e3"`、`"-0.0"` 同样应保持字符串，
+解析、序列化、工具参数及归档不得通过尝试数值解析猜测类型。
+字符串可传给 `assistant_reply.text`，数值 `1.0` 不可以；
+要求 number 的工具也必须拒绝字符串 `"1.0"`。
+
+回归入口：`python -X utf8 tests/verify_conversation.py`，覆盖七语言、双协议、两个 MCP 会话、
+多次消息、主动结束及结束后禁止操作、后续网络失败、数字样式字符串。
+C++ 原生 JSON 测试另覆盖根字符串、混合对象/数组、类型读取与序列化往返。

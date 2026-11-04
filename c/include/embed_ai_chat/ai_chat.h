@@ -83,6 +83,11 @@ AI_CHAT_StatusTypeDef AI_CHAT_ActivateSkill(AI_CHAT_HandleTypeDef *handle, const
  * @note 自动摘要较早历史并保留最近四条消息；压缩失败保留原文。回调中不得重入引擎。
  */
 AI_CHAT_StatusTypeDef AI_CHAT_Send(AI_CHAT_HandleTypeDef *handle, const char *text, char **answer);
+/** @brief 事件仅在回调期间借用，不得保留/释放/重入；非 OK 返回值中断处理。 */
+typedef AI_CHAT_StatusTypeDef (*AI_CHAT_EventCallback)(const cJSON *event, void *user_data);
+/** @brief 按序通知 assistant/tool/done；失败保留已发送消息与审计，answer 仍由 AI_CHAT_Free 释放。 */
+AI_CHAT_StatusTypeDef AI_CHAT_SendWithEvents(AI_CHAT_HandleTypeDef *handle, const char *text, char **answer,
+                                          AI_CHAT_EventCallback callback, void *user_data);
 /** @brief 导出版本 1 归档副本；调用者 cJSON_Delete，不包含密钥及可执行回调。 */
 cJSON *AI_CHAT_ExportHistory(const AI_CHAT_HandleTypeDef *handle);
 /** @brief 完整校验后原子替换历史；不恢复连接或重放工具调用。 */

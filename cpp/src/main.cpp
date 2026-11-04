@@ -173,8 +173,12 @@ int run(int argc, char **argv) {
             }
         }
         if (!ask.empty()) {
-            std::cout << engine.send(ask) << "\n"
-                      << Json::object({{"host", state}, {"history", engine.export_history()}}).dump() << "\n";
+            engine.send(ask, [](const Json &event) {
+                if (json_at(event, "type") == "assistant") {
+                    std::cout << json_get<std::string>(json_at(event, "text")) << std::endl;
+                }
+            });
+            std::cout << Json::object({{"host", state}, {"history", engine.export_history()}}).dump() << "\n";
             return 0;
         }
         std::cout << "EmbedAiChat C++ 控制台；/help 查看命令，/key 输入会话密钥。\n";
@@ -258,7 +262,11 @@ int run(int argc, char **argv) {
                     throw std::runtime_error("Unknown command; /help");
                 }
                 if (!line.empty()) {
-                    std::cout << engine.send(line) << "\n";
+                    engine.send(line, [](const Json &event) {
+                        if (json_at(event, "type") == "assistant") {
+                            std::cout << json_get<std::string>(json_at(event, "text")) << std::endl;
+                        }
+                    });
                 }
             } catch (const std::exception &e) {
                 std::cerr << "Error: " << e.what() << "\n";

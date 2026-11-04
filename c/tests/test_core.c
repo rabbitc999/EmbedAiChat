@@ -16,7 +16,7 @@ static HAL_NET_StatusTypeDef mock_post(HAL_NET_HandleTypeDef *net, const HAL_NET
     CHECK(q->Timeout==1000);
     if (f->mode==1 || (f->mode==2 && f->requests)) { cJSON_Delete(body); return HAL_NET_TIMEOUT; }
     if (!f->requests) {
-        CHECK(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(body,"tools"))==3);
+        CHECK(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(body,"tools"))==5);
         if (f->anthropic) {
             CHECK(cJSON_IsArray(cJSON_GetObjectItemCaseSensitive(body,"system")));
             response="{\"content\":[{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"host_set_value\",\"input\":{\"value\":42}}]}";
@@ -39,6 +39,16 @@ static AI_CHAT_StatusTypeDef edit(const cJSON *args, cJSON **result, void *user)
     CHECK(cJSON_GetObjectItemCaseSensitive(args,"value")->valuedouble==42);
     ++f->edits; *result=cJSON_CreateObject(); cJSON_AddNumberToObject(*result,"value",42); return AI_CHAT_OK;
 }
+/* 事件回调中断不得重发或丢失已执行审计；done 只在正常结束时发送。 */
+static AI_CHAT_StatusTypeDef observe_event(const cJSON *event, void *user) {
+    int *counts=(int *)user;
+    const char *type=cJSON_GetObjectItemCaseSensitive(event,"type")->valuestring;
+    if (!strcmp(type,"assistant")) { ++counts[0]; if (counts[3]) { return AI_CHAT_ERROR; } }
+    else if (!strcmp(type,"tool")) { ++counts[1]; }
+    else if (!strcmp(type,"done")) { ++counts[2]; }
+    else { CHECK(0); }
+    return AI_CHAT_OK;
+}
 static void test_engine(int anthropic, int mode) {
     Fixture f={0,0,mode,anthropic,NULL};
     HAL_NET_HandleTypeDef net={&driver,&f,HAL_NET_STATE_RESET,HAL_NET_OK};
@@ -46,6 +56,7 @@ static void test_engine(int anthropic, int mode) {
     AI_CHAT_HandleTypeDef *h=NULL;
     cJSON *schema, *args, *result=NULL, *archive, *before, *after;
     char *answer=NULL, *a, *b;
+    int events[4]={0,0,0,mode==3};
     config.Provider=anthropic?"anthropic":"openai"; config.Model="fixture";
     config.APIKey="test-secret"; config.Timeout=1000;
     CHECK(HAL_NET_Init(&net)==HAL_NET_OK);
@@ -66,7 +77,12 @@ static void test_engine(int anthropic, int mode) {
     CHECK(AI_CHAT_LoadSkill(h,"demo","---\nname: demo\n---\nHost instructions")==AI_CHAT_OK);
     CHECK(AI_CHAT_ActivateSkill(h,"demo")==AI_CHAT_OK);
     CHECK(AI_CHAT_ActivateSkill(h,"unknown")==AI_CHAT_ERROR);
-    if (!mode) { CHECK(AI_CHAT_Send(h,"hello",&answer)==AI_CHAT_OK); CHECK(!strcmp(answer,"**ok**")); AI_CHAT_Free(answer); }
+    if (mode>=3) {
+        CHECK(AI_CHAT_SendWithEvents(h,"hello",&answer,observe_event,events)==(mode==3?AI_CHAT_ERROR:AI_CHAT_OK));
+        CHECK(events[0]==1 && events[1]==1 && events[2]==(mode==4));
+        if (mode==3) { CHECK(!answer); } else { CHECK(!strcmp(answer,"**ok**")); AI_CHAT_Free(answer); }
+    }
+    else if (!mode) { CHECK(AI_CHAT_Send(h,"hello",&answer)==AI_CHAT_OK); CHECK(!strcmp(answer,"**ok**")); AI_CHAT_Free(answer); }
     else { CHECK(AI_CHAT_Send(h,"hello",&answer)==AI_CHAT_ERROR); CHECK(!answer); }
     CHECK(HAL_NET_GetState(&net)==HAL_NET_STATE_READY);
     archive=AI_CHAT_ExportHistory(h);
@@ -84,5 +100,6 @@ static void test_engine(int anthropic, int mode) {
 }
 int main(void) {
     test_engine(0,0); test_engine(1,0); test_engine(0,1); test_engine(1,1); test_engine(0,2); test_engine(1,2);
+    test_engine(0,3); test_engine(1,3); test_engine(0,4); test_engine(1,4);
     puts("C core/HAL tests passed (OpenAI, Anthropic, timeout, audit, schema, history)"); return 0;
 }

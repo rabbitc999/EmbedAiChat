@@ -131,7 +131,7 @@ public final class Console {
         }
       }
       if (!ask.isEmpty()) {
-        System.out.println(engine.send(ask));
+        engine.send(ask, event -> { if (event.get("type").getAsString().equals("assistant")) System.out.println(event.get("text").getAsString()); });
         System.out.println(object("host", state, "history", engine.exportHistory()));
         return;
       }
@@ -234,7 +234,7 @@ public final class Console {
             throw new IllegalArgumentException("Unknown command; /help");
           }
           if (!line.isEmpty()) {
-            System.out.println(engine.send(line));
+            engine.send(line, event -> { if (event.get("type").getAsString().equals("assistant")) System.out.println(event.get("text").getAsString()); });
           }
         } catch (Exception error) {
           System.err.println("Error: " + error.getMessage());
